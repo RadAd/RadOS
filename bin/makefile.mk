@@ -1,4 +1,6 @@
-VPATH=..\src
+SRC_DIR=../src
+
+build:
 
 include tools.mk
 include extra.mk
@@ -23,7 +25,7 @@ STARTUP.BIN: test.com
 
 LINK_OPTIONS=-mt -os -q -bcl=dos
 
-test.com: $(wildcard ../src/*.c ../src/*.h)
+test.com: $(wildcard $(SRC_DIR)/*.c $(SRC_DIR)/*.h $(SRC_DIR)/**/*.h)
 
 clean::
 	$(call msg,$@,$^)

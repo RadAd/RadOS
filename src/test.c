@@ -1,8 +1,8 @@
 // https://superuser.com/questions/974581/chs-to-lba-mapping-disk-storage
 // http://kernelx.weebly.com/text-console.html
 
-#include "bios_screen.h"
-#include "bios_keyb.h"
+#include "bios/screen.h"
+#include "bios/keyb.h"
 #include "bool.h"
 #include "byte.h"
 #include "vmodes.h"
