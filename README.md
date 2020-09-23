@@ -1,6 +1,8 @@
 # RadOS
 Toy 16-bit real mode operating system
 
+![RadOS](docs/RadOS.png)
+
 For now its more of a program running on the bare hardware rather than an actual operating system.
 I originally started using assembly but it is a much slower process and I wasn't making much progress.
 Using assembly may produce a smaller binary, especially in the startup code, but that hasn't been an issue as yet.
