@@ -293,7 +293,7 @@ void main()
                 while (b <= e)
                 {
                     if (c == 0)
-                        print_fmt("%04X:%04X: ", HWFP(b), LWFP(b));
+                        print_fmt("%04X:%04X: ", HW(b), LW(b));
                     print_fmt("%02X ", *b);
                     s[c] = isprint(*b) ? *b : '.';
                     b++;
