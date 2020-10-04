@@ -13,4 +13,6 @@ typedef unsigned long DWORD;
 #define LW(x) (WORD) ((DWORD) (x) & 0xFFFF)
 #define HW(x) LW((DWORD) (x) >> (BIT_SIZE * sizeof(WORD)))
 
+#define FLAG(x) (1 << (x))
+
 #endif
