@@ -4,6 +4,7 @@
 #include "bios/disk.h"
 #include "bool.h"
 #include "vmodes.h"
+#include "system.h"
 #include "terminal.h"
 
 #include <stdlib.h>
@@ -68,19 +69,6 @@ enum FileAttribute
     FILE_ATTR_DIRECTORY,
     FILE_ATTR_ARCHIVE,
 };
-
-void (far * reboot_v)() = MK_FP(0xFFFF, 0x0000);
-#pragma aux reboot_v aborts;    // TODO unlcear if this is working - it should turn it from a call to a jmp
-
-void reboot();
-#pragma aux reboot = \
-    0xea 0x00 0x00 0xFF 0xFF /* far jmp */;
-
-void shutdown_qemu();
-#pragma aux shutdown_qemu = \
-    "mov ax, 2000h" \
-	"mov dx, 604h" \
-	"out dx, ax";
 
 void main()
 {
@@ -300,12 +288,11 @@ void main()
         }
         else if (strcmp(tokv[0], "reboot") == 0)
         {
-            //reboot();
-            (*reboot_v)();
+            system_reboot();
         }
         else if (strcmp(tokv[0], "shutdown") == 0 || strcmp(tokv[0], "exit") == 0)
         {
-            shutdown_qemu();
+            system_shutdown_qemu();
         }
 #if 1
         else if (strcmp(tokv[0], "sizes") == 0)
