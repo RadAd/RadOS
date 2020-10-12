@@ -16,5 +16,3 @@ struct video_mode_s
 };
 
 extern struct video_mode_s video_mode_data[];
-
-#define VMD() video_mode_data[g_video_mode]
