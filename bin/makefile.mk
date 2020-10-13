@@ -14,7 +14,7 @@ run: build exec.test.img
 	
 exec.%: %
 	$(call msg,$@,$^)
-	qemu-system-x86_64 -drive if=floppy,format=raw,file=$^
+	qemu-system-x86_64 -rtc base=localtime -drive if=floppy,format=raw,file=$^
 
 test.img: STARTUP.BIN
 test.img: BOOTSECTOR=../tools/flp144.bin

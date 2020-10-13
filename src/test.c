@@ -2,6 +2,7 @@
 // http://kernelx.weebly.com/text-console.html
 
 #include "bios/disk.h"
+#include "bios/clock.h"
 #include "bool.h"
 #include "vmodes.h"
 #include "system.h"
@@ -64,6 +65,8 @@ void main()
         else if (strcmp(tokv[0], "help") == 0)
         {
             terminal_print_str("cls\tclear the screen\n");
+            terminal_print_str("time\tdisplay time\n");
+            terminal_print_str("date\tdisplay date\n");
             terminal_print_str("m\tdisplay memory range\n");
             terminal_print_str("r\tdisplay registers\n");
             terminal_print_str("reboot\treboot computer\n");
@@ -99,6 +102,16 @@ void main()
             const struct video_mode_s* details = terminal_get_mode_details();
             terminal_print_fmt("size: %dx%d\n", details->width, details->height);
             terminal_print_fmt("colors: %d\n", details->colors);
+        }
+        else if (strcmp(tokv[0], "time") == 0)
+        {
+            struct time t = bios_get_time();
+            terminal_print_fmt("time: %02d:%02d:%02d\n", t.hours, t.minutes, t.seconds);
+        }
+        else if (strcmp(tokv[0], "date") == 0)
+        {
+            struct date d = bios_get_date();
+            terminal_print_fmt("date: %02d/%02d/%04d\n", d.day, d.month, d.year);
         }
         else if (strcmp(tokv[0], "drive") == 0)
         {
