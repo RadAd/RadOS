@@ -6,6 +6,7 @@
 #include "vmodes.h"
 #include "system.h"
 #include "terminal.h"
+#include "fat.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -27,48 +28,16 @@ int split_string(char* s, const char* delem, const char* tokv[])
     return tokc;
 }
 
-#pragma pack (push, 0);
-struct boot_sector
+int block_read(int drive, int lba, int count, void far* mem)
 {
-    BYTE jump[3];
-    char oem[8];
-    WORD bytes_per_sector;
-    BYTE sector_per_cluster;
-    WORD reserved_sectors;
-    BYTE number_of_fats;
-    WORD number_of_root_directory_entries;
-    WORD number_of_sectors;
-    BYTE media_descriptor;
-    WORD sectors_per_fat;
-    WORD sectors_per_track;
-    WORD number_of_heads;
-    WORD number_of_hidden_sectors;
-};
-#pragma pack (pop);
-
-#pragma pack (push, 0);
-struct directory_entry
-{
-    char name[8];
-    char ext[3];
-    BYTE attribute;
-    BYTE reserved[10];
-    WORD time;
-    WORD date;
-    WORD start_cluster;
-    DWORD file_size; // bytes
-};
-#pragma pack (pop);
-
-enum FileAttribute
-{
-    FILE_ATTR_READ_ONLY,
-    FILE_ATTR_HIDDEN,
-    FILE_ATTR_SYSTEM,
-    FILE_ATTR_VOLUME,
-    FILE_ATTR_DIRECTORY,
-    FILE_ATTR_ARCHIVE,
-};
+    struct drive_param dp = bios_drive_param(drive);
+    struct drive_chs chs;
+    if (dp.cylinders < 0)
+        return -1;
+        
+    chs = lba_to_chs(&dp, lba);
+    return bios_disk_read(drive, count, &chs, mem);
+}
 
 void main()
 {
@@ -186,16 +155,14 @@ void main()
             else
             {
                 int drive = strtoul(tokv[1], NULL, 16);
-                struct drive_param dp = bios_drive_param(drive);
-                if (dp.cylinders >= 0)
-                {
-                    BYTE far* mem = (BYTE far*) strtoul(tokv[2], NULL, 16);
-                    struct drive_chs chs = lba_to_chs(&dp, strtoul(tokv[3], NULL, 10));
-                    int r = bios_disk_read(drive, 1, &chs, mem);
+                BYTE far* mem = (BYTE far*) strtoul(tokv[2], NULL, 16);
+                int lba = strtoul(tokv[3], NULL, 10);
+                int r = block_read(drive, lba, 1, mem);
+                
+                if (r >= 0)
                     terminal_print_fmt("load: %d\n", r);
-                }
                 else
-                    terminal_print_fmt("error: bios_drive_param\n");
+                    terminal_print_fmt("error: block_read %d\n", r);
             }
         }
         else if (strcmp(tokv[0], "dir") == 0)
@@ -208,17 +175,15 @@ void main()
             else
             {
                 int drive = strtoul(tokv[1], NULL, 16);
-                struct drive_param dp = bios_drive_param(drive);
-                if (dp.cylinders >= 0)
+                BYTE far* mem = _fmalloc(512);
+                int r1 = block_read(drive, 0, 1, mem);
+                
+                if (r1 >= 0)
                 {
-                    BYTE far* mem = _fmalloc(512);
-                    struct drive_chs chs = lba_to_chs(&dp, 0);
-                    int r1 = bios_disk_read(drive, 1, &chs, mem);
                     const struct boot_sector far* bs = (const struct boot_sector far*) mem;
                     int number_of_root_directory_entries = bs->number_of_root_directory_entries;
                     int root_directory = bs->reserved_sectors + bs->number_of_fats * bs->sectors_per_fat;
-                    struct drive_chs directory_chs = lba_to_chs(&dp, root_directory);
-                    int r2 = bios_disk_read(drive, 1, &directory_chs, mem);
+                    int r2 = block_read(drive, root_directory, 1, mem);
                     terminal_print_fmt("load: %d %d\n", r1, r2);
                     //terminal_print_fmt("directory_entry: %d\n", sizeof(struct directory_entry));
                     {
@@ -239,10 +204,11 @@ void main()
                             ++i;
                         }
                     }
-                    _ffree(mem);
                 }
                 else
-                    terminal_print_fmt("error: bios_drive_param\n");
+                    terminal_print_fmt("error: block_read %d\n", r1);
+                    
+                _ffree(mem);
             }
         }
         else if (strcmp(tokv[0], "fat") == 0)
@@ -255,35 +221,30 @@ void main()
             else
             {
                 int drive = strtoul(tokv[1], NULL, 16);
-                struct drive_param dp = bios_drive_param(drive);
-                if (dp.cylinders >= 0)
+                BYTE far* mem = _fmalloc(512);
+                int r = block_read(drive, 0, 1, mem);
+                if (r >= 0)
                 {
-                    BYTE far* mem = _fmalloc(512);
-                    struct drive_chs chs = lba_to_chs(&dp, 0);
-                    int r = bios_disk_read(drive, 1, &chs, mem);
+                    const struct boot_sector far* bs = (const struct boot_sector far*) mem;
                     terminal_print_fmt("load: %d\n", r);
-                    {
-                        const struct boot_sector far* bs = (const struct boot_sector far*) mem;
-                        terminal_print_fmt("oem: %Fs\n", bs->oem);
-                        terminal_print_fmt("bytes_per_sector: %u\n", bs->bytes_per_sector);
-                        terminal_print_fmt("sector_per_cluster: %u\n", bs->sector_per_cluster);
-                        terminal_print_fmt("reserved_sectors: %u\n", bs->reserved_sectors);
-                        terminal_print_fmt("number_of_fats: %u\n", bs->number_of_fats);
-                        terminal_print_fmt("number_of_root_directory_entries: %u\n", bs->number_of_root_directory_entries);
-                        terminal_print_fmt("number_of_sectors: %u\n", bs->number_of_sectors);
-                        terminal_print_fmt("media_descriptor: %u\n", bs->media_descriptor);
-                        terminal_print_fmt("sectors_per_fat: %u\n", bs->sectors_per_fat);
-                        terminal_print_fmt("sectors_per_track: %u\n", bs->sectors_per_track);
-                        terminal_print_fmt("number_of_heads: %u\n", bs->number_of_heads);
-                        terminal_print_fmt("number_of_hidden_sectors: %u\n", bs->number_of_hidden_sectors);
-                        terminal_print_fmt("root_directory: %u\n", bs->reserved_sectors + bs->number_of_fats * bs->sectors_per_fat);
-                    }
-                    _ffree(mem);
+
+                    terminal_print_fmt("oem: %Fs\n", bs->oem);
+                    terminal_print_fmt("bytes_per_sector: %u\n", bs->bytes_per_sector);
+                    terminal_print_fmt("sector_per_cluster: %u\n", bs->sector_per_cluster);
+                    terminal_print_fmt("reserved_sectors: %u\n", bs->reserved_sectors);
+                    terminal_print_fmt("number_of_fats: %u\n", bs->number_of_fats);
+                    terminal_print_fmt("number_of_root_directory_entries: %u\n", bs->number_of_root_directory_entries);
+                    terminal_print_fmt("number_of_sectors: %u\n", bs->number_of_sectors);
+                    terminal_print_fmt("media_descriptor: %u\n", bs->media_descriptor);
+                    terminal_print_fmt("sectors_per_fat: %u\n", bs->sectors_per_fat);
+                    terminal_print_fmt("sectors_per_track: %u\n", bs->sectors_per_track);
+                    terminal_print_fmt("number_of_heads: %u\n", bs->number_of_heads);
+                    terminal_print_fmt("number_of_hidden_sectors: %u\n", bs->number_of_hidden_sectors);
+                    terminal_print_fmt("root_directory: %u\n", bs->reserved_sectors + bs->number_of_fats * bs->sectors_per_fat);
                 }
                 else
-                {
-                    terminal_print_fmt("error: bios_drive_param\n");
-                }
+                    terminal_print_fmt("error: block_read %d\n", r);
+                _ffree(mem);
             }
         }
         else if (strcmp(tokv[0], "reboot") == 0)
