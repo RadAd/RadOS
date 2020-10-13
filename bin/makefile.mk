@@ -6,26 +6,26 @@ include tools.mk
 include extra.mk
 include rules.mk
 
-build: test.img
+build: rados.img
 	$(call msg,$@,$^)
 	
-run: build exec.test.img
+run: build exec.rados.img
 	$(call msg,$@,$^)
 	
 exec.%: %
 	$(call msg,$@,$^)
 	qemu-system-x86_64 -rtc base=localtime -drive if=floppy,format=raw,file=$^
 
-test.img: STARTUP.BIN
-test.img: BOOTSECTOR=../tools/flp144.bin
+rados.img: STARTUP.BIN
+rados.img: BOOTSECTOR=../tools/flp144.bin
 
-STARTUP.BIN: test.com
+STARTUP.BIN: rados.com
 	$(call msg,$@,$^)
 	copy $< $@
 
 LINK_OPTIONS=-mt -os -q -bcl=dos
 
-test.com: $(wildcard $(SRC_DIR)/*.c $(SRC_DIR)/*.h $(SRC_DIR)/**/*.h)
+rados.com: $(wildcard $(SRC_DIR)/*.c $(SRC_DIR)/*.h $(SRC_DIR)/**/*.h)
 
 clean::
 	$(call msg,$@,$^)
