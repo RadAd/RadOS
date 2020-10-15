@@ -39,15 +39,27 @@ extern void bios_scroll_window_up(int lines, int attribute, int start_row, int s
     "int 10h"                           \
     parm [al] [bh] [ch] [cl] [dh] [dl]  \
     modify [AX SP BP SI DI];
- 
+
+extern void bios_write_char_and_attribute_at_cursor(int page, char c, int attribue, int count);
+// http://vitaly_filatov.tripod.com/ng/asm/asm_023.10.html
+#pragma aux bios_write_char_and_attribute_at_cursor = \
+    "mov ah, 09h"                       \
+    "int 10h"                           \
+    parm [bh] [al] [bl] [cx]            \
+    modify [AX SP BP SI DI];
+
 extern void bios_write_char_at_cursor(int page, char c, int count);
+// http://vitaly_filatov.tripod.com/ng/asm/asm_023.11.html
 #pragma aux bios_write_char_at_cursor = \
     "mov ah, 0ah"                       \
     "int 10h"                           \
     parm [bh] [al] [cx]                 \
     modify [AX SP BP SI DI];
- 
+
+// attribue - only used in graphics mode
 extern void bios_print_char(int page, char c, int attribue);
+// http://vitaly_filatov.tripod.com/ng/asm/asm_023.15.html
+// http://www.ctyme.com/intr/rb-0106.htm
 #pragma aux bios_print_char =   \
     "mov ah, 0eh"               \
     "int 10h"                   \

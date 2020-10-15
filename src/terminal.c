@@ -60,6 +60,13 @@ struct pos_s terminal_get_cursor_position()
     return p;
 }
 
+static inline void fix_for_qemu()
+{
+    struct pos_s pos = terminal_get_cursor_position();
+    if (pos.x == 0 && pos.y == VMD().height - 1)
+        bios_write_char_and_attribute_at_cursor(g_video_page, ' ', g_video_attribute, VMD().width);
+}
+
 void terminal_print_char(char c)
 {
     // TODO end of screen scroll up should be using attribute from last character but doesn't appear to work
@@ -77,6 +84,7 @@ void terminal_print_char(char c)
         if (c == '\n')
             bios_print_char(g_video_page, '\r', g_video_attribute);
         bios_print_char(g_video_page, c, g_video_attribute);
+        fix_for_qemu();
     }
     //bios_print_char_attribute(g_video_page, c, g_video_attribute);
 }

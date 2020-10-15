@@ -14,10 +14,9 @@
 #include <ctype.h>
 #include <malloc.h>
 
-int split_string(char* s, const char* delem, const char* tokv[])
+int split_string(char* s, const char* delim, const char* tokv[])
 {
     int tokc = 0;
-    const char delim[] = " ";
     const char *ptr = strtok(s, delim);
     
     while(ptr != NULL)
