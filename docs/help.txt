@@ -9,7 +9,6 @@ color	set screen colors
 mode	display info about current video mode
 sizes	display type sizes
 drive	display drive geometry
-chs	display lba to chs conversion
 chdir	change current directory
 type	display a text file
 copy	copy a file

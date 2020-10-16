@@ -6,6 +6,24 @@
 #include "fatfs.h"
 #include "terminal.h"   // TODO Remove
 
+// https://superuser.com/questions/974581/chs-to-lba-mapping-disk-storage
+
+inline struct drive_chs lba_to_chs(const struct drive_param* dp, int lba)
+{
+    struct drive_chs chs = { 0 };
+    int temp = lba % (dp->heads * dp->sectors);
+    chs.cylinder = lba / (dp->heads * dp->sectors);
+    chs.head = temp / dp->sectors;
+    chs.sector = temp % dp->sectors + 1;
+    return chs;
+}
+
+inline int chs_to_lba(const struct drive_param* dp, const struct drive_chs* chs)
+{
+    int lba = ((chs->cylinder * dp->heads + chs->head) * dp->sectors) + chs->sector - 1;
+    return lba;
+}
+
 int block_read(int drive, int lba, int count, void far* mem)
 {
     struct drive_param dp = bios_drive_param(drive);

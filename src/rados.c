@@ -1,6 +1,3 @@
-// https://superuser.com/questions/974581/chs-to-lba-mapping-disk-storage
-// http://kernelx.weebly.com/text-console.html
-
 #include "bios/disk.h"
 #include "bios/clock.h"
 #include "bool.h"
@@ -14,6 +11,17 @@
 #include <string.h>
 #include <ctype.h>
 #include <malloc.h>
+
+// http://www.brokenthorn.com/Resources/OSDevIndex.html
+// https://wiki.osdev.org/Floppy_Disk_Controller
+
+// TODO
+// Find number of drives attatched
+// See https://stanislavs.org/helppc/bios_data_area.html
+// 40:10 contains # of diskette drives, less 1 (See INT 11h)
+// 40:75 Number of hard disks attached
+
+// https://wiki.osdev.org/Memory_Map_(x86)
 
 int split_string(char* s, const char* delim, const char* tokv[])
 {
@@ -104,29 +112,6 @@ void command()
                     terminal_print_fmt("cylinders: %d\n", dp.cylinders);
                     terminal_print_fmt("sectors: %d\n", dp.sectors);
                     terminal_print_fmt("heads: %d\n", dp.heads);
-                }
-                else
-                    terminal_print_fmt("error: bios_drive_param\n");
-            }
-        }
-        else if (strcmp(tokv[0], "chs") == 0)
-        {
-            if (tokc != 3)
-            {
-                terminal_print_str("chs [drive_num] [lba]\n");
-                terminal_print_str("\twhere [drive_num] is 0 for the first diskette and 80 fo the first disk\n");
-                terminal_print_str("\twhere [lba] is in decimal\n");
-            }
-            else
-            {
-                struct drive_param dp = bios_drive_param(strtoul(tokv[1], NULL, 16));
-                if (dp.cylinders >= 0)
-                {
-                    struct drive_chs chs = lba_to_chs(&dp, strtoul(tokv[2], NULL, 10));
-                    terminal_print_fmt("cylinder: %d\n", chs.cylinder);
-                    terminal_print_fmt("sector: %d\n", chs.sector);
-                    terminal_print_fmt("heads: %d\n", chs.head);
-                    terminal_print_fmt("lba: %d\n", chs_to_lba(&dp, &chs));
                 }
                 else
                     terminal_print_fmt("error: bios_drive_param\n");
@@ -322,19 +307,44 @@ void command()
     buf = NULL;
 }
 
+extern unsigned int bios_low_mem();
+#pragma aux bios_low_mem =  \
+    "clc"               \
+    "int 12h"           \
+    value [ax];
+
+extern unsigned int bios_extended_mem();
+#pragma aux bios_extended_mem =  \
+    "clc"               \
+    "MOV AH, 0x88"      \
+    "int 15h"           \
+    value [ax];
+
+extern BYTE get_boot_dev();
+#pragma aux get_boot_dev =  \
+    value [dl];
+
+// http://www.uruk.org/orig-grub/mem64mb.html
+// http://www.uruk.org/orig-grub/mem64mb.html#int15e801
+// http://www.uruk.org/orig-grub/mem64mb.html#int1588
+
 void main()
 {
+    BYTE boot_dev = get_boot_dev();
+    
     terminal_init();
     terminal_print_str("*** Rad OS\n");
+    terminal_print_fmt("low mem %u KB\n", bios_low_mem() + 1);
+    terminal_print_fmt("ext mem %u KB\n", bios_extended_mem());
     
     {
         FRESULT r;
-        r  = mount(0, 0);
+        r  = mount(0, boot_dev);
         if (r != FR_OK)
             terminal_print_fmt("ERROR: mount: %d\n", r);
-        r = f_chdir("0:/");
-        if (r != FR_OK)
-            terminal_print_fmt("ERROR: f_chdir: %d\n", r);
+        //r = f_chdir("0:/");
+        //if (r != FR_OK)
+            //terminal_print_fmt("ERROR: f_chdir: %d\n", r);
     }
     
     command();

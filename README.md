@@ -16,8 +16,12 @@ You can't use any of the standard file i/o, even standard output.
 It is safe to use functions that don't rely on the OS such as the string functions.
 I am currently using malloc/free. I wasn't sure it was going to work, but it seems to work ok.
 
-Current focus is on screen output and keyboard input using the BIOS api.
-Next I will look into loading a sector from the disk.
+Using BIOS functionality I have working:
+- screen output
+- keyboard input
+- time and date
+- disk i/o
+
 Eventually it will probably be worthwhile to replace BIOS with direct hardware access.
 
 
