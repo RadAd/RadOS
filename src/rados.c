@@ -7,12 +7,18 @@
 #include "vmodes.h"
 #include "system.h"
 #include "terminal.h"
-#include "fat.h"
+#include "fatfs.h"
 
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
 #include <malloc.h>
+
+
+BOOL isempty(const char* s)
+{
+	return s[0] == '\0';
+}
 
 int split_string(char* s, const char* delim, const char* tokv[])
 {
@@ -28,15 +34,34 @@ int split_string(char* s, const char* delim, const char* tokv[])
     return tokc;
 }
 
-int block_read(int drive, int lba, int count, void far* mem)
+FRESULT printdir(const TCHAR* dir)
 {
-    struct drive_param dp = bios_drive_param(drive);
-    struct drive_chs chs;
-    if (dp.cylinders < 0)
-        return -1;
-        
-    chs = lba_to_chs(&dp, lba);
-    return bios_disk_read(drive, count, &chs, mem);
+	FRESULT r;
+	DIR d = { 0 };
+	FILINFO fi = { 0 };
+	
+	if (dir == NULL)
+        dir = ".";
+
+	r = f_opendir(&d, dir);
+	if (r != FR_OK)
+		return r;
+	while (((r = f_readdir(&d, &fi)) == FR_OK) && (!isempty(fi.fname)))
+	{
+		const struct FatTime ftime = UnpackTime(fi.ftime);
+		const struct FatDate fdate = UnpackDate(fi.fdate);
+
+		terminal_print_fmt("%c%c%c%c%c %-11s %8lu %02d/%02d/%04d %02d:%02d:%02d\n",
+			fi.fattrib & AM_DIR ? 'd' : '-', fi.fattrib & AM_RDO ? 'r' : '-', fi.fattrib & AM_ARC ? 'a' : '-', fi.fattrib & AM_SYS ? 's' : '-', fi.fattrib & AM_HID ? 'h' : '-',
+			fi.fname, fi.fsize, fdate.day, fdate.month, fdate.year + 1980, ftime.hours, ftime.minutes, ftime.seconds * 2);
+	}
+	if (r != FR_OK)
+	{
+		f_closedir(&d);
+		return r;
+	}
+	r = f_closedir(&d);
+	return r;
 }
 
 void main()
@@ -46,13 +71,28 @@ void main()
     terminal_init();
     terminal_print_str("*** Rad OS\n");
     
+    {
+        FRESULT r;
+        r  = mount(0, 0);
+        if (r != FR_OK)
+            terminal_print_fmt("ERROR: mount: %d\n", r);
+        r = f_chdir("0:/");
+        if (r != FR_OK)
+            terminal_print_fmt("ERROR: f_chdir: %d\n", r);
+    }
+    
     buf = (char *) malloc(1024 * (int) sizeof(char));
     while (TRUE)
     {
         int tokc = 0;
-        const char *tokv[100];
+        const char *tokv[100] = { NULL };
+        char cwd[100];
         
-        terminal_print_str("> ");
+        FRESULT r = f_getcwd(cwd, 100);
+        if (r != FR_OK)
+            terminal_print_fmt("ERROR: f_getcwd: %d\n", r);
+        
+        terminal_print_fmt("%s > ", cwd);
         terminal_keyb_input(buf, 1024);
         terminal_print_str("\n");
         
@@ -71,11 +111,10 @@ void main()
             terminal_print_str("reboot\treboot computer\n");
             terminal_print_str("shutdown\tshutdown computer\n");
             terminal_print_str("color\tset screen colors\n");
-            terminal_print_str("sizes\tdisplay type sizes\n");
             terminal_print_str("mode\tdisplay info about current video mode\n");
+            terminal_print_str("sizes\tdisplay type sizes\n");
             terminal_print_str("drive\tdisplay drive geometry\n");
             terminal_print_str("chs\tdisplay lba to chs conversion\n");
-            terminal_print_str("fat\tdisplay fat parameters\n");
             terminal_print_str("dir\tdisplay directory listing\n");
         }
         else if (strcmp(tokv[0], "cls") == 0)
@@ -155,109 +194,12 @@ void main()
                     terminal_print_fmt("error: bios_drive_param\n");
             }
         }
-        else if (strcmp(tokv[0], "load") == 0)
-        {
-            if (tokc != 4)
-            {
-                terminal_print_str("load [drive_num] [mem] [lba]\n");
-                terminal_print_str("\twhere [drive_num] is 0 for the first diskette and 80 fo the first disk\n");
-                terminal_print_str("\twhere [mem] where to load to\n");
-                terminal_print_str("\twhere [lba] is in decimal\n");
-            }
-            else
-            {
-                int drive = strtoul(tokv[1], NULL, 16);
-                BYTE far* mem = (BYTE far*) strtoul(tokv[2], NULL, 16);
-                int lba = strtoul(tokv[3], NULL, 10);
-                int r = block_read(drive, lba, 1, mem);
-                
-                if (r >= 0)
-                    terminal_print_fmt("load: %d\n", r);
-                else
-                    terminal_print_fmt("error: block_read %d\n", r);
-            }
-        }
         else if (strcmp(tokv[0], "dir") == 0)
         {
-            if (tokc != 2)
-            {
-                terminal_print_str("dir [drive_num]\n");
-                terminal_print_str("\twhere [drive_num] is 0 for the first diskette and 80 fo the first disk\n");
-            }
-            else
-            {
-                int drive = strtoul(tokv[1], NULL, 16);
-                BYTE far* mem = _fmalloc(512);
-                int r1 = block_read(drive, 0, 1, mem);
-                
-                if (r1 >= 0)
-                {
-                    const struct boot_sector far* bs = (const struct boot_sector far*) mem;
-                    int number_of_root_directory_entries = bs->number_of_root_directory_entries;
-                    int root_directory = bs->reserved_sectors + bs->number_of_fats * bs->sectors_per_fat;
-                    int r2 = block_read(drive, root_directory, 1, mem);
-                    terminal_print_fmt("load: %d %d\n", r1, r2);
-                    //terminal_print_fmt("directory_entry: %d\n", sizeof(struct directory_entry));
-                    {
-                        const struct directory_entry far* de = (const struct directory_entry far*) mem;
-                        int i = 0;
-                        while (de[i].name[0] != 0 && i < number_of_root_directory_entries)
-                        {
-                            terminal_print_fmt("%c%c%c%c%c",
-                                (de[i].attribute & FLAG(FILE_ATTR_DIRECTORY)) ? 'd' : '-',
-                                (de[i].attribute & FLAG(FILE_ATTR_READ_ONLY)) ? 'r' : '-',
-                                (de[i].attribute & FLAG(FILE_ATTR_ARCHIVE)) ? 'a' : '-',
-                                (de[i].attribute & FLAG(FILE_ATTR_SYSTEM)) ? 's' : '-',
-                                (de[i].attribute & FLAG(FILE_ATTR_HIDDEN)) ? 'h' : '-');
-                            terminal_print_fmt(" %.8Fs.%.3Fs", de[i].name, de[i].ext);
-                            terminal_print_fmt(" %lu", de[i].file_size);
-                            terminal_print_fmt("\n");
-                            
-                            ++i;
-                        }
-                    }
-                }
-                else
-                    terminal_print_fmt("error: block_read %d\n", r1);
-                    
-                _ffree(mem);
-            }
-        }
-        else if (strcmp(tokv[0], "fat") == 0)
-        {
-            if (tokc != 2)
-            {
-                terminal_print_str("fat [drive_num]\n");
-                terminal_print_str("\twhere [drive_num] is 0 for the first diskette and 80 fo the first disk\n");
-            }
-            else
-            {
-                int drive = strtoul(tokv[1], NULL, 16);
-                BYTE far* mem = _fmalloc(512);
-                int r = block_read(drive, 0, 1, mem);
-                if (r >= 0)
-                {
-                    const struct boot_sector far* bs = (const struct boot_sector far*) mem;
-                    terminal_print_fmt("load: %d\n", r);
-
-                    terminal_print_fmt("oem: %Fs\n", bs->oem);
-                    terminal_print_fmt("bytes_per_sector: %u\n", bs->bytes_per_sector);
-                    terminal_print_fmt("sector_per_cluster: %u\n", bs->sector_per_cluster);
-                    terminal_print_fmt("reserved_sectors: %u\n", bs->reserved_sectors);
-                    terminal_print_fmt("number_of_fats: %u\n", bs->number_of_fats);
-                    terminal_print_fmt("number_of_root_directory_entries: %u\n", bs->number_of_root_directory_entries);
-                    terminal_print_fmt("number_of_sectors: %u\n", bs->number_of_sectors);
-                    terminal_print_fmt("media_descriptor: %u\n", bs->media_descriptor);
-                    terminal_print_fmt("sectors_per_fat: %u\n", bs->sectors_per_fat);
-                    terminal_print_fmt("sectors_per_track: %u\n", bs->sectors_per_track);
-                    terminal_print_fmt("number_of_heads: %u\n", bs->number_of_heads);
-                    terminal_print_fmt("number_of_hidden_sectors: %u\n", bs->number_of_hidden_sectors);
-                    terminal_print_fmt("root_directory: %u\n", bs->reserved_sectors + bs->number_of_fats * bs->sectors_per_fat);
-                }
-                else
-                    terminal_print_fmt("error: block_read %d\n", r);
-                _ffree(mem);
-            }
+            FRESULT r;
+            r  = printdir(tokv[1]);
+            if (r != FR_OK)
+                terminal_print_fmt("ERROR: printdir: %d\n", r);
         }
         else if (strcmp(tokv[0], "reboot") == 0)
         {

@@ -4,7 +4,7 @@
 #define BIT_SIZE (8)
 
 typedef unsigned char BYTE;
-typedef unsigned int WORD;
+typedef unsigned short WORD;
 typedef unsigned long DWORD;
 
 #define LB(x) (BYTE) ((WORD) (x) & 0xFF)

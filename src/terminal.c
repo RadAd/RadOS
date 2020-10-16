@@ -60,7 +60,7 @@ struct pos_s terminal_get_cursor_position()
     return p;
 }
 
-static inline void fix_for_qemu()
+void fix_for_qemu()
 {
     struct pos_s pos = terminal_get_cursor_position();
     if (pos.x == 0 && pos.y == VMD().height - 1)

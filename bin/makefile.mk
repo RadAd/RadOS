@@ -25,7 +25,7 @@ STARTUP.BIN: rados.com
 
 LINK_OPTIONS=-mt -os -q -bcl=dos
 
-rados.com: $(wildcard $(SRC_DIR)/*.c $(SRC_DIR)/*.h $(SRC_DIR)/**/*.h)
+rados.com: $(wildcard $(SRC_DIR)/*.c $(SRC_DIR)/*.h $(SRC_DIR)/**/*.c $(SRC_DIR)/**/*.h)
 
 clean::
 	$(call msg,$@,$^)
