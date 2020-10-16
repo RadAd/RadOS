@@ -8,17 +8,12 @@
 #include "system.h"
 #include "terminal.h"
 #include "fatfs.h"
+#include "shell.h"
 
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
 #include <malloc.h>
-
-
-BOOL isempty(const char* s)
-{
-	return s[0] == '\0';
-}
 
 int split_string(char* s, const char* delim, const char* tokv[])
 {
@@ -34,54 +29,10 @@ int split_string(char* s, const char* delim, const char* tokv[])
     return tokc;
 }
 
-FRESULT printdir(const TCHAR* dir)
+void command()
 {
-	FRESULT r;
-	DIR d = { 0 };
-	FILINFO fi = { 0 };
-	
-	if (dir == NULL)
-        dir = ".";
-
-	r = f_opendir(&d, dir);
-	if (r != FR_OK)
-		return r;
-	while (((r = f_readdir(&d, &fi)) == FR_OK) && (!isempty(fi.fname)))
-	{
-		const struct FatTime ftime = UnpackTime(fi.ftime);
-		const struct FatDate fdate = UnpackDate(fi.fdate);
-
-		terminal_print_fmt("%c%c%c%c%c %-11s %8lu %02d/%02d/%04d %02d:%02d:%02d\n",
-			fi.fattrib & AM_DIR ? 'd' : '-', fi.fattrib & AM_RDO ? 'r' : '-', fi.fattrib & AM_ARC ? 'a' : '-', fi.fattrib & AM_SYS ? 's' : '-', fi.fattrib & AM_HID ? 'h' : '-',
-			fi.fname, fi.fsize, fdate.day, fdate.month, fdate.year + 1980, ftime.hours, ftime.minutes, ftime.seconds * 2);
-	}
-	if (r != FR_OK)
-	{
-		f_closedir(&d);
-		return r;
-	}
-	r = f_closedir(&d);
-	return r;
-}
-
-void main()
-{
-    char *buf;
-
-    terminal_init();
-    terminal_print_str("*** Rad OS\n");
+    char *buf = (char *) malloc(1024 * (int) sizeof(char));
     
-    {
-        FRESULT r;
-        r  = mount(0, 0);
-        if (r != FR_OK)
-            terminal_print_fmt("ERROR: mount: %d\n", r);
-        r = f_chdir("0:/");
-        if (r != FR_OK)
-            terminal_print_fmt("ERROR: f_chdir: %d\n", r);
-    }
-    
-    buf = (char *) malloc(1024 * (int) sizeof(char));
     while (TRUE)
     {
         int tokc = 0;
@@ -103,19 +54,7 @@ void main()
         }
         else if (strcmp(tokv[0], "help") == 0)
         {
-            terminal_print_str("cls\tclear the screen\n");
-            terminal_print_str("time\tdisplay time\n");
-            terminal_print_str("date\tdisplay date\n");
-            terminal_print_str("m\tdisplay memory range\n");
-            terminal_print_str("r\tdisplay registers\n");
-            terminal_print_str("reboot\treboot computer\n");
-            terminal_print_str("shutdown\tshutdown computer\n");
-            terminal_print_str("color\tset screen colors\n");
-            terminal_print_str("mode\tdisplay info about current video mode\n");
-            terminal_print_str("sizes\tdisplay type sizes\n");
-            terminal_print_str("drive\tdisplay drive geometry\n");
-            terminal_print_str("chs\tdisplay lba to chs conversion\n");
-            terminal_print_str("dir\tdisplay directory listing\n");
+            shell_type("0:/help.txt");
         }
         else if (strcmp(tokv[0], "cls") == 0)
         {
@@ -127,7 +66,6 @@ void main()
             {
                 terminal_print_str("color [color]\n");
                 terminal_print_str("\twhere [color] high byte is background and low byte is foreground\n");
-                
             }
             else
             {
@@ -194,13 +132,116 @@ void main()
                     terminal_print_fmt("error: bios_drive_param\n");
             }
         }
+		else if (strcmp(tokv[0], "cd") == 0 || strcmp(tokv[0], "chdir") == 0)
+		{
+			switch (tokc)
+			{
+			case 1:
+				terminal_print_fmt("%s <dir>\n", tokv[0]);
+				break;
+
+			case 2:
+				shell_chdir(tokv[1]);
+				break;
+
+			default:
+				terminal_print_str("Too many arguments\n");
+			}
+		}
+		else if (strcmp(tokv[0], "cat") == 0 || strcmp(tokv[0], "type") == 0)
+		{
+			switch (tokc)
+			{
+			case 1:
+				terminal_print_fmt("%s <file>\n", tokv[0]);
+				break;
+
+			case 2:
+				shell_type(tokv[1]);
+				break;
+
+			default:
+				terminal_print_str("Too many arguments\n");
+			}
+		}
+		else if (strcmp(tokv[0], "cp") == 0 || strcmp(tokv[0], "copy") == 0)
+		{
+			switch (tokc)
+			{
+			case 1:
+				terminal_print_fmt("%s <dir>\n", tokv[0]);
+				break;
+
+			case 2:
+			case 3:
+                shell_copy(tokv[1], tokv[2]);
+				break;
+
+			default:
+				terminal_print_str("Too many arguments\n");
+			}
+		}
+		else if (strcmp(tokv[0], "rm") == 0 || strcmp(tokv[0], "del") == 0)
+		{
+			switch (tokc)
+			{
+			case 1:
+				terminal_print_fmt("%s <file>\n", tokv[0]);
+				break;
+
+			case 2:
+				shell_del(tokv[1]);
+				break;
+
+			default:
+				terminal_print_str("Too many arguments\n");
+			}
+		}
         else if (strcmp(tokv[0], "dir") == 0)
         {
-            FRESULT r;
-            r  = printdir(tokv[1]);
-            if (r != FR_OK)
-                terminal_print_fmt("ERROR: printdir: %d\n", r);
+			switch (tokc)
+			{
+			case 1:
+			case 2:
+                shell_dir(tokv[1]);
+				break;
+
+			default:
+				terminal_print_str("Too many arguments\n");
+			}
         }
+		else if (strcmp(tokv[0], "md") == 0 || strcmp(tokv[0], "mkdir") == 0)
+		{
+			switch (tokc)
+			{
+			case 1:
+				terminal_print_fmt("%s <dir>\n", tokv[0]);
+				break;
+
+			case 2:
+				shell_mkdir(tokv[1]);
+				break;
+
+			default:
+				terminal_print_str("Too many arguments\n");
+			}
+		}
+		else if (strcmp(tokv[0], "rd") == 0 || strcmp(tokv[0], "rmdir") == 0)
+		{
+			switch (tokc)
+			{
+			case 1:
+				terminal_print_fmt("%s <dir>\n", tokv[0]);
+				break;
+
+			case 2:
+				shell_rmdir(tokv[1]);
+				break;
+
+			default:
+				terminal_print_str("Too many arguments\n");
+			}
+		}
         else if (strcmp(tokv[0], "reboot") == 0)
         {
             system_reboot();
@@ -279,6 +320,24 @@ void main()
     }
     free(buf);
     buf = NULL;
+}
+
+void main()
+{
+    terminal_init();
+    terminal_print_str("*** Rad OS\n");
+    
+    {
+        FRESULT r;
+        r  = mount(0, 0);
+        if (r != FR_OK)
+            terminal_print_fmt("ERROR: mount: %d\n", r);
+        r = f_chdir("0:/");
+        if (r != FR_OK)
+            terminal_print_fmt("ERROR: f_chdir: %d\n", r);
+    }
+    
+    command();
     
 #pragma warning 111 5
     while (TRUE);

@@ -17,6 +17,17 @@ int block_read(int drive, int lba, int count, void far* mem)
     return bios_disk_read(drive, count, &chs, mem);
 }
 
+int block_write(int drive, int lba, int count, void far* mem)
+{
+    struct drive_param dp = bios_drive_param(drive);
+    struct drive_chs chs;
+    if (dp.cylinders < 0)
+        return -1;
+        
+    chs = lba_to_chs(&dp, lba);
+    return bios_disk_write(drive, count, &chs, mem);
+}
+
 DSTATUS disk_initialize(BYTE pdrv)
 {
     //terminal_print_str("disk_initialize\n");
@@ -47,14 +58,28 @@ DRESULT disk_read(BYTE pdrv, BYTE* buff, LBA_t sector, UINT count)
 
 DRESULT disk_write(BYTE pdrv, const BYTE* buff, LBA_t sector, UINT count)
 {
-    terminal_print_fmt("disk_write %d \n", pdrv);
-    return RES_ERROR;
+    BYTE dev = get_dev(pdrv);
+    int r = block_write(dev, sector, count, buff);
+    //terminal_print_fmt("disk_write %d %d\n", pdrv, dev);
+    if (r < 0)
+    {
+        terminal_print_fmt("block_write %d\n", r);
+        return RES_ERROR;
+    }
+    return RES_OK;
 }
 
 DRESULT disk_ioctl(BYTE pdrv, BYTE cmd, void* buff)
 {
-    terminal_print_fmt("disk_ioctl %d %d\n", pdrv, cmd);
-    return RES_ERROR;
+    switch (cmd)
+    {
+    case CTRL_SYNC:
+        return RES_OK;
+        
+    default:
+        terminal_print_fmt("disk_ioctl %d %d\n", pdrv, cmd);
+        return RES_ERROR;
+    }
 }
 
 DWORD get_fattime(void)

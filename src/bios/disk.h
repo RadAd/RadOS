@@ -110,3 +110,35 @@ inline int bios_disk_read(int drive, int count, const struct drive_chs* chs, voi
     else
         return regs.w.ax;
 }
+
+inline int bios_disk_write(int drive, int count, const struct drive_chs* chs, void far* mem)
+{
+// http://vitaly_filatov.tripod.com/ng/asm/asm_024.4.html
+    struct SREGS  sregs;
+    union REGS  regs;
+    int retry = 3;
+    
+    do
+    {
+        regs.h.ah = 0x03;
+        regs.h.al = count;
+        regs.h.ch = chs->cylinder & 0xFF;
+        regs.h.cl = chs->sector | ((chs->cylinder >> 2) & 0xC0);;
+        regs.h.dh = chs->head;
+        regs.h.dl = drive;
+        regs.w.bx = FP_OFF(mem);
+        
+        sregs.es = FP_SEG(mem);
+        
+#if defined(__386__) && defined(__DOS__)
+        int386x(0x13, &regs, &regs, &sregs);
+#else
+        int86x(0x13, &regs, &regs, &sregs);
+#endif
+    } while ((regs.x.cflag) && (retry-- > 0));
+    
+    if (regs.x.cflag)
+        return -regs.h.ah; // TODO Can we return anything better here
+    else
+        return regs.w.ax;
+}

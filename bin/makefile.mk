@@ -16,7 +16,7 @@ exec.%: %
 	$(call msg,$@,$^)
 	qemu-system-x86_64 -rtc base=localtime -drive if=floppy,format=raw,file=$^
 
-rados.img: STARTUP.BIN
+rados.img: STARTUP.BIN ../docs/help.txt
 rados.img: BOOTSECTOR=../tools/flp144.bin
 
 STARTUP.BIN: rados.com

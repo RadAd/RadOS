@@ -1,0 +1,19 @@
+cls	clear the screen
+time	display time
+date	display date
+m	display memory range
+r	display registers
+reboot	reboot computer
+shutdown	shutdown computer
+color	set screen colors
+mode	display info about current video mode
+sizes	display type sizes
+drive	display drive geometry
+chs	display lba to chs conversion
+chdir	change current directory
+type	display a text file
+copy	copy a file
+del	delete a file
+dir	display directory listing
+mkdir	create a directory
+rmdir	remove a directory

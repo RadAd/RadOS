@@ -84,7 +84,8 @@ void terminal_print_char(char c)
         if (c == '\n')
             bios_print_char(g_video_page, '\r', g_video_attribute);
         bios_print_char(g_video_page, c, g_video_attribute);
-        fix_for_qemu();
+        if (c != '\r')
+            fix_for_qemu();
     }
     //bios_print_char_attribute(g_video_page, c, g_video_attribute);
 }
