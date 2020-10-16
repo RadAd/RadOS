@@ -23,9 +23,11 @@ STARTUP.BIN: rados.com
 	$(call msg,$@,$^)
 	copy $< $@
 
-LINK_OPTIONS=-mt -os -q -bcl=dos
+LINK_OPTIONS=-mt -os -q -s -bt=dos
 
-rados.com: $(wildcard $(SRC_DIR)/*.c $(SRC_DIR)/*.h $(SRC_DIR)/**/*.c $(SRC_DIR)/**/*.h)
+rados.com: $(wildcard $(SRC_DIR)/*.c $(SRC_DIR)/**/*.c)
+
+rados.c: $(wildcard $(SRC_DIR)/*.h $(SRC_DIR)/**/*.h)
 
 clean::
 	$(call msg,$@,$^)

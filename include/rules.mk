@@ -6,7 +6,7 @@ RM=if exist $(1) del $(1)
 
 %.com:
 	$(call msg,$@,$^)
-	$(LINK) $(LINK_OPTIONS) -fe=$@ $(filter-out %.h,$^)
+	$(LINK) $(LINK_OPTIONS) -fe=$@ $^
 	
 %.img: $(BOOTSECTOR)
 	$(call msg,$@,$^)
