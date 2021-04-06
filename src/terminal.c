@@ -1,8 +1,12 @@
 // http://kernelx.weebly.com/text-console.html
 
 // See https://stanislavs.org/helppc/bios_data_area.html
+// Are these graphics mode only?
 // 40:4A Number of screen columns
 // 40:84 Rows on the screen (less 1, EGA+)
+
+// https://wiki.osdev.org/Text_mode
+// https://wiki.osdev.org/Text_Mode_Cursor
 
 #include "terminal.h"
 
